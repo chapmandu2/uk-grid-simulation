@@ -47,38 +47,64 @@ dat_1hr %>%
 # get some intuition about the data-  what does a year look like with demand and supply?
 dat_1hr %>%
   dplyr::filter(ts_hour > '2019-01-01', ts_hour < '2019-12-31') %>%
-  ggplot(aes(ts_hour, demand)) + 
+  ggplot(aes(ts_hour, demand, color = 'black')) + 
     geom_line() + 
-    geom_line(aes(y=wind), color = 'blue') +
-    geom_line(aes(y=solar), color = 'orange') +
+    geom_line(aes(y=ccgt), color = 'magenta', alpha = 0.3) +
+    geom_line(aes(y=solar), color = 'orange', alpha  = 0.5) +
+    geom_line(aes(y=wind), color = 'blue', alpha = 0.8) +
     geom_line(aes(y=nuclear), color = 'darkgrey') +
-    geom_line(aes(y=ccgt), color = 'magenta') +    
     ylim(0,50000) + 
-    theme_bw()
+    xlab('') + ylab('Generation/Demand MWh') +
+    theme_bw() +
+    scale_colour_manual(name = '', guide = 'legend',
+                      values =c(
+                        'demand' = 'black',
+                        'wind'='blue',
+                        'solar'='orange', 
+                        'nuclear' = 'darkgrey', 
+                        'ccgt' = 'magenta'))
+  
 
 # what about a month
 dat_1hr %>%
   dplyr::filter(ts_hour > '2019-03-01', ts_hour < '2019-03-16') %>%
-  ggplot(aes(ts_hour, demand)) + 
+  ggplot(aes(ts_hour, demand, color = 'black')) + 
     geom_line() + 
     geom_line(aes(y=wind), color = 'blue') +
     geom_line(aes(y=solar), color = 'orange') +
     geom_line(aes(y=nuclear), color = 'darkgrey') +
     geom_line(aes(y=ccgt), color = 'magenta') +    
     ylim(0,50000) + 
-    theme_bw()
+    xlab('') + ylab('Generation/Demand MWh') +
+    theme_bw() +
+    scale_colour_manual(name = '', guide = 'legend',
+                        values =c(
+                          'demand' = 'black',
+                          'wind'='blue',
+                          'solar'='orange', 
+                          'nuclear' = 'darkgrey', 
+                          'ccgt' = 'magenta'))
 
 # and finally - what about a low wind month?
 dat_1hr %>%
   dplyr::filter(ts_hour > '2022-03-01', ts_hour < '2022-04-01') %>%
-  ggplot(aes(ts_hour, demand)) + 
+  ggplot(aes(ts_hour, demand, color = 'black')) + 
   geom_line() + 
   geom_line(aes(y=wind), color = 'blue') +
   geom_line(aes(y=solar), color = 'orange') +
   geom_line(aes(y=nuclear), color = 'darkgrey') +
   geom_line(aes(y=ccgt), color = 'magenta') +    
   ylim(0,50000) + 
-  theme_bw()
+  xlab('') + ylab('Generation/Demand MWh') +
+  theme_bw()  +
+  scale_colour_manual(name = '', guide = 'legend',
+                      values =c(
+                        'demand' = 'black',
+                        'wind'='blue',
+                        'solar'='orange', 
+                        'nuclear' = 'darkgrey', 
+                        'ccgt' = 'magenta'))
+
 
 # note that 'demand' in gridwatch data is affected by unmetered wind a solar 
 # this shows up as reductions in demand - eg household solar reduces that household's requirements
@@ -150,12 +176,21 @@ model1 <- normalised_vargen %>%
 
 model1 %>%
   dplyr::filter(ts_hour > '2022-03-01', ts_hour < '2022-04-01') %>%
-  ggplot(aes(ts_hour, demand)) +
-  geom_line(color = 'black') +
+  ggplot(aes(ts_hour, demand, color = 'black')) + 
+  geom_line() + 
   geom_line(aes(y=wind), color = 'blue') +
   geom_line(aes(y=solar), color = 'orange') +
-  geom_line(aes(y=gas), color = 'magenta') +
-  theme_bw()
+  geom_line(aes(y=gas), color = 'magenta') +    
+  ylim(0,50000) + 
+  xlab('') + ylab('Generation/Demand MWh') +
+  theme_bw()  +
+  scale_colour_manual(name = '', guide = 'legend',
+                      values =c(
+                        'demand' = 'black',
+                        'wind'='blue',
+                        'solar'='orange', 
+                        'nuclear' = 'darkgrey', 
+                        'gas' = 'magenta'))
 
 
 # model 2 - add curtailment and excess
@@ -180,13 +215,22 @@ model2 <- normalised_vargen %>%
 
 model2 %>%
   dplyr::filter(ts_hour > '2021-01-01', ts_hour < '2022-01-01') %>%
-  ggplot(aes(ts_hour, demand)) +
-  geom_line(color = 'black') +
+  ggplot(aes(ts_hour, demand, color = 'black')) + 
+  geom_line() + 
   geom_line(aes(y=wind), color = 'blue') +
   geom_line(aes(y=solar), color = 'orange') +
-  geom_line(aes(y=gas), color = 'magenta') +
+  geom_line(aes(y=gas), color = 'magenta') + 
   geom_line(aes(y=-curtailment), color = 'red')  +
-  theme_bw()
+  xlab('') + ylab('Generation/Demand MWh') +
+  theme_bw()  +
+  scale_colour_manual(name = '', guide = 'legend',
+                      values =c(
+                        'demand' = 'black',
+                        'wind'='blue',
+                        'solar'='orange', 
+                        'nuclear' = 'darkgrey', 
+                        'gas' = 'magenta',
+                        'curtailment' = 'red'))
 
 model2 %>%
   dplyr::filter(ts_hour > '2021-01-01', ts_hour < '2022-01-01') %>%
@@ -194,13 +238,22 @@ model2 %>%
 
 model2 %>%
   dplyr::filter(ts_hour > '2022-03-01', ts_hour < '2022-04-01') %>%
-  ggplot(aes(ts_hour, demand)) +
-  geom_line(color = 'black') +
+  ggplot(aes(ts_hour, demand, color = 'black')) + 
+  geom_line() + 
   geom_line(aes(y=wind), color = 'blue') +
   geom_line(aes(y=solar), color = 'orange') +
-  geom_line(aes(y=gas), color = 'magenta') +
+  geom_line(aes(y=gas), color = 'magenta') + 
   geom_line(aes(y=-curtailment), color = 'red')  +
-  theme_bw()
+  xlab('') + ylab('Generation/Demand MWh') +
+  theme_bw()  +
+  scale_colour_manual(name = '', guide = 'legend',
+                      values =c(
+                        'demand' = 'black',
+                        'wind'='blue',
+                        'solar'='orange', 
+                        'nuclear' = 'darkgrey', 
+                        'gas' = 'magenta',
+                        'curtailment' = 'red'))
 
 # now let's try to do the same thing but across a range of wind capacity
 
@@ -221,7 +274,7 @@ model2_fn <- function(df, start_date, end_date, wind_cap, gas_cap, solar_cap) {
 normalised_vargen %>%
   model2_fn(
     start_date = '2017-01-01',
-    end_date = '2022-05-12',
+    end_date = '2021-12-31',
     wind_cap = 20000,
     gas_cap = 50000,
     solar_cap = 20000)
@@ -230,7 +283,7 @@ normalised_vargen %>%
 sim_df <- tibble(
   input_data = list(normalised_vargen),
   start_date = '2017-01-01',
-  end_date = '2022-05-12',
+  end_date = '2021-12-31',
   solar_cap = 20000
 ) %>% tidyr::crossing(
   wind_cap = c(10000,20000, 40000, 80000, 120000),
@@ -256,23 +309,63 @@ sim_df
 # what does wind, solar, gas generaiton look like
 sim_df %>%
   dplyr::select(wind_cap, gas_cap, wind, solar, gas) %>%
-  tidyr::pivot_longer(cols = c('wind', 'solar', 'gas'), names_to = 'source', values_to = 'GWh') %>%
-  ggplot(aes(as.factor(wind_cap), GWh, fill=source)) + geom_bar(stat='identity') + facet_wrap(~gas_cap) + theme_bw()
+  tidyr::pivot_longer(cols = c('wind', 'solar', 'gas'), names_to = 'source', values_to = 'TWh') %>%
+  ggplot(aes(as.factor(wind_cap/1000), TWh, fill=source)) + 
+    geom_bar(stat='identity') + 
+    facet_wrap(~gas_cap/1000, labeller = labeller(.default = function(val) {paste0(val, ' GW Gas')})) + 
+    xlab('Total Wind Capacity (GW)') +
+    theme_bw() +
+    scale_fill_manual(name = '', guide = 'legend',
+                      values =c(
+                      #  'demand' = 'black',
+                        'wind'='blue',
+                        'solar'='orange', 
+                       # 'nuclear' = 'darkgrey', 
+                        'gas' = 'magenta'
+                      #  'curtailment' = 'red',
+                       # 'deficit' = 'purple'
+                      ))
 
 #what about deficit and curtailment
 sim_df %>%
   dplyr::transmute(wind_cap, gas_cap, curtailment, deficit = -deficit) %>%
-  tidyr::pivot_longer(cols = c('curtailment', 'deficit'), names_to = 'source', values_to = 'GWh') %>%
-  ggplot(aes(as.factor(wind_cap), GWh, fill=source)) + geom_bar(stat='identity') + facet_wrap(~gas_cap) + theme_bw()
+  tidyr::pivot_longer(cols = c('curtailment', 'deficit'), names_to = 'source', values_to = 'TWh') %>%
+  ggplot(aes(as.factor(wind_cap/1000), TWh, fill=source)) + 
+  geom_bar(stat='identity') + 
+  facet_wrap(~gas_cap/1000, labeller = labeller(.default = function(val) {paste0(val, ' GW Gas')})) + 
+  xlab('Total Wind Capacity (GW)') +
+  theme_bw() +
+  scale_fill_manual(name = '', guide = 'legend',
+                    values =c(
+                      #  'demand' = 'black',
+                      #'wind'='blue',
+                      #'solar'='orange', 
+                      # 'nuclear' = 'darkgrey', 
+                      #'gas' = 'magenta'
+                        'curtailment' = 'red',
+                       'deficit' = 'purple'
+                    ))
 
 # finally consider amount of gas, deficit and curtailment
 sim_df %>%
   dplyr::transmute(wind_cap, gas_cap, curtailment, gas, deficit=-deficit) %>%
-  tidyr::pivot_longer(cols = c('curtailment',  'gas', 'deficit'), names_to = 'source', values_to = 'GWh') %>%
-  ggplot(aes(as.factor(wind_cap), GWh, fill=source)) + geom_bar(stat='identity') + facet_wrap(~gas_cap) + theme_bw()
+  tidyr::pivot_longer(cols = c('curtailment',  'gas', 'deficit'), names_to = 'source', values_to = 'TWh') %>%
+  ggplot(aes(as.factor(wind_cap/1000), TWh, fill=source)) + 
+  geom_bar(stat='identity') + 
+  facet_wrap(~gas_cap/1000, labeller = labeller(.default = function(val) {paste0(val, ' GW Gas')})) + 
+  xlab('Total Wind Capacity (GW)') +
+  theme_bw() +
+  scale_fill_manual(name = '', guide = 'legend',
+                    values =c(
+                      #  'demand' = 'black',
+                      #'wind'='blue',
+                      #'solar'='orange', 
+                      # 'nuclear' = 'darkgrey', 
+                      'gas' = 'magenta',
+                      'curtailment' = 'red',
+                      'deficit' = 'purple'
+                    ))
 
 
-
-# we have two problems with a 
 
   
