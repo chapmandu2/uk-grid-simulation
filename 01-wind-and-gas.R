@@ -146,9 +146,11 @@ normalised_vargen <- dat_1hr %>%
 
 #plot normalised  wind output
 ggplot(normalised_vargen %>% dplyr::filter(ts_hour > '2013-01-01'), aes(ts_hour, wind)) + 
-  geom_line(aes(y=max_wind))  + 
-  geom_line()  +
-  theme_bw()
+  geom_line(aes(y=max_wind), color = 'black', linetype = 'dashed')  + 
+  geom_line(color='black')  +
+  theme_bw() +
+  xlab('') + ylab('Generation MWh') +
+  theme_bw()  
 ggplot(normalised_vargen %>% dplyr::filter(ts_hour > '2013-01-01'), aes(ts_hour, pct_wind)) + 
   geom_line()  + theme_bw()
 
