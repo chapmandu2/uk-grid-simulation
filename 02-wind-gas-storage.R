@@ -65,6 +65,10 @@ model3_fn <- function(df, start_date, end_date, wind_cap, gas_cap, solar_cap, ba
                   battery_store_post = 0,
                   battery = 0)
   
+  
+  # this bit is pretty hideous, 
+  # not sure how to vectorise as each time period is dependent on the one before
+  # might be better to at least refactor so central logic is seperate and can exist in different forms?
   for (i in 1:nrow(dat)) {
     dat$battery_store_pre[i] = ifelse(i==1, battery_stor, dat$battery_store_post[i-1])
     
@@ -122,10 +126,13 @@ sim_out_summarise <- function(df) {
 
 sim_out_summarise(test_out)
 
+# parallelise across 8 cores
 library(furrr)
 plan(multisession, workers = 8)
 
-# do a full simulation with different amounts of wind and gas with 24GW/500GWh storage
+# do a full simulation with different amounts of wind and configurations of storage
+# more GW and fewer GWh is 'battery-like' whereas fewer GW and more GWh is more 'pumped-hydro' like
+# eg Coire Glas is 1.5GW/30GWh whereas intergen gateway battery project is 320MW/640MWh
 sim1_df <- tibble(
   input_data = list(normalised_vargen),
   start_date = '2017-01-01',
@@ -134,8 +141,8 @@ sim1_df <- tibble(
   gas_cap = 50000,
 ) %>% tidyr::crossing(
   wind_cap = c(40000, 80000, 120000),
-  battery_stor = c(0, 500000, 2000000),
-  battery_cap = c(24000, 36000)
+  battery_stor = c(0, 100000, 500000, 2000000),
+  battery_cap = c(12000, 24000, 48000)
 ) %>%
   dplyr::mutate(
     sim_out = furrr::future_pmap(
@@ -242,5 +249,153 @@ sim1_df_summarised %>%
                     ))
 
 
-
+# what is % gas?
+sim1_df_summarised %>%
+  dplyr::transmute(wind_cap, gas_cap, gas, demand, battery_stor, battery_cap,
+                   battery_cap_gw = battery_cap/1000, battery_stor_gw = battery_stor/1000,
+                   wind_cap_gw = wind_cap/1000,
+                   gas_pct = gas * 100/demand) %>%
+  ggplot(aes(wind_cap_gw, gas_pct)) +
+    geom_point() + geom_line() +
+    facet_grid(battery_cap_gw ~ battery_stor_gw, 
+               labeller = labeller(
+                 battery_cap_gw = function(val) {paste0(val, ' GW Storage')},
+                 battery_stor_gw = function(val) {paste0(val, ' GWh Storage')}
+               )
+    )  +
+    xlab('Total Wind Capacity (GW)') +
+    theme_bw()
   
+
+# what is % utilisation of gas?
+sim1_df_summarised %>%
+  dplyr::transmute(wind_cap, gas_cap, gas, demand, battery_stor, battery_cap,
+                   battery_cap_gw = battery_cap/1000, battery_stor_gw = battery_stor/1000,
+                   wind_cap_gw = wind_cap/1000,
+                   gas_cf = gas * 100 * 1000/(gas_cap * 24 * 365)) %>%
+  ggplot(aes(wind_cap_gw, gas_cf)) +
+  geom_point() + geom_line() +
+  facet_grid(battery_cap_gw ~ battery_stor_gw, 
+             labeller = labeller(
+               battery_cap_gw = function(val) {paste0(val, ' GW Storage')},
+               battery_stor_gw = function(val) {paste0(val, ' GWh Storage')}
+             )
+  )  +
+  xlab('Total Wind Capacity (GW)') +
+  theme_bw()
+
+# what is max capacity of gas required?
+sim1_df_summarised %>%
+  dplyr::transmute(wind_cap, gas_cap, gas, demand, battery_stor, battery_cap,
+                   battery_cap_gw = battery_cap/1000, battery_stor_gw = battery_stor/1000,
+                   wind_cap_gw = wind_cap/1000,
+                   gas_max_cap = purrr::map_dbl(sim_out, ~max(.$gas))) %>%
+  ggplot(aes(wind_cap_gw, gas_max_cap)) +
+  geom_point() + geom_line() +
+  facet_grid(battery_cap_gw ~ battery_stor_gw, 
+             labeller = labeller(
+               battery_cap_gw = function(val) {paste0(val, ' GW Storage')},
+               battery_stor_gw = function(val) {paste0(val, ' GWh Storage')}
+             )
+  )  +
+  xlab('Total Wind Capacity (GW)') +
+  theme_bw()
+
+#why do you need more gas capacity when you have more storage capacity?! 
+# with 12GW use part storage, part gas all the way through the wind lull
+normalised_vargen %>%
+  model3_fn(
+    start_date = '2022-03-15',
+    end_date = '2022-04-03',
+    wind_cap = 120000,
+    gas_cap = 50000,
+    solar_cap = 20000,
+    battery_cap = 12000,
+    battery_stor =  2000000) %>%
+  ggplot(aes(ts_hour, demand)) +
+    geom_line(color = 'black') +
+    geom_line(aes(y=wind), color = 'blue') +
+    geom_line(aes(y=solar), color = 'orange') +
+    geom_line(aes(y=gas), color = 'magenta') +
+    geom_line(aes(y=battery), color = 'darkgreen') +
+    geom_line(aes(y=-deficit), color = 'gray')  +
+    geom_line(aes(y=-curtailment), color = 'red')  +
+    geom_area(aes(y=-battery_store_post/50), fill = 'lightblue', alpha = 0.6) +
+    theme_bw()
+
+# with 48GW use all storage, no gas most of the way through the wind lull 
+# but then all gas, no storage at the end when the storage runs dry!!
+normalised_vargen %>%
+  model3_fn(
+    start_date = '2022-03-15',
+    end_date = '2022-04-03',
+    wind_cap = 120000,
+    gas_cap = 50000,
+    solar_cap = 20000,
+    battery_cap = 48000,
+    battery_stor =  2000000) %>%
+  ggplot(aes(ts_hour, demand)) +
+  geom_line(color = 'black') +
+  geom_line(aes(y=wind), color = 'blue') +
+  geom_line(aes(y=solar), color = 'orange') +
+  geom_line(aes(y=gas), color = 'magenta') +
+  geom_line(aes(y=battery), color = 'darkgreen') +
+  geom_line(aes(y=-deficit), color = 'gray')  +
+  geom_line(aes(y=-curtailment), color = 'red')  +
+  geom_area(aes(y=-battery_store_post/50), fill = 'lightblue', alpha = 0.6) +
+  theme_bw()
+
+# also worth noting that more  solar could have helped here by keeping storage topped up, even in march
+normalised_vargen %>%
+  model3_fn(
+    start_date = '2022-03-15',
+    end_date = '2022-04-03',
+    wind_cap = 120000,
+    gas_cap = 50000,
+    solar_cap = 50000,
+    battery_cap = 48000,
+    battery_stor =  2000000) %>%
+  ggplot(aes(ts_hour, demand)) +
+  geom_line(color = 'black') +
+  geom_line(aes(y=wind), color = 'blue') +
+  geom_line(aes(y=solar), color = 'orange') +
+  geom_line(aes(y=gas), color = 'magenta') +
+  geom_line(aes(y=battery), color = 'darkgreen') +
+  geom_line(aes(y=-deficit), color = 'gray')  +
+  geom_line(aes(y=-curtailment), color = 'red')  +
+  geom_area(aes(y=-battery_store_post/50), fill = 'lightblue', alpha = 0.6) +
+  theme_bw()
+  
+# in reality the most cost effecive option would be for storage and gas (or biomass) to behave differently
+# pricing mechanisms would try to get the balance right between running storage running down to avoid
+# using gas/biomass and ensuring that excess renewables can be absorbed once wind lull is over
+# and on the other hand ensuring that storage doesn't run down entirely
+# a smaller, more amount of 'backup' capacity might therefore be retained that runs more often in 'top up' mode
+
+# the benefit of retaining a larger amount of gas capacity is the GUARANTEE that there will never be 
+# a shortfall, but this comes at the cost of retaining this capacity
+
+# also have the option of interconnectors to import and export
+# haven't included in this analysis since it is unclear in times of low RE generation whether import would be
+# possible since other countries would also be suffering from low RE generation (esp wind)
+# may help imore n summer periods - other countries running nukes, better solar resources, lower demand generally
+
+# where is gas most used?
+normalised_vargen %>%
+  model3_fn(
+    start_date = '2019-01-01',
+    end_date = '2019-12-31',
+    wind_cap = 80000,
+    gas_cap = 50000,
+    solar_cap = 10000,
+    battery_cap = 24000,
+    battery_stor =  500000) %>%
+  ggplot(aes(ts_hour, demand)) +
+    geom_line(color = 'black') +
+    geom_line(aes(y=wind), color = 'blue', alpha = 0.2) +
+    geom_line(aes(y=solar), color = 'orange', alpha = 0.2) +
+    geom_line(aes(y=gas), color = 'magenta') +
+    geom_line(aes(y=battery), color = 'darkgreen', alpha = 0.2) +
+    geom_line(aes(y=-curtailment), color = 'red', alpha = 0.2)  +
+    geom_area(aes(y=-battery_store_post/30), fill = 'lightblue', alpha = 0.6) +
+    theme_bw()
