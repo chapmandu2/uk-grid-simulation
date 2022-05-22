@@ -105,15 +105,23 @@ test_out <- normalised_vargen %>%
 
 test_out %>%
   ggplot(aes(ts_hour, demand)) +
-  geom_line(color = 'black') +
-  geom_line(aes(y=wind), color = 'blue') +
-  geom_line(aes(y=solar), color = 'orange') +
-  geom_line(aes(y=gas), color = 'magenta') +
-  geom_line(aes(y=battery), color = 'darkgreen') +
-  geom_line(aes(y=-deficit), color = 'gray')  +
-  geom_line(aes(y=-curtailment), color = 'red')  +
-  geom_area(aes(y=-battery_store_post/10), fill = 'lightblue', alpha = 0.6) +
-  theme_bw()
+    geom_line(aes(color = 'black')) +
+    geom_line(aes(y=wind, color = 'blue')) +
+    geom_line(aes(y=solar, color = 'orange')) +
+    geom_line(aes(y=gas, color = 'magenta')) +
+    geom_line(aes(y=battery, color = 'darkgreen')) +
+    geom_line(aes(y=-deficit, color = 'gray'))  +
+    geom_line(aes(y=-curtailment, color = 'red'))  +
+    geom_area(aes(y=-battery_store_post/10, fill='lightblue'), alpha = 0.6) +
+    xlab('') + ylab('Generation/Demand MWh') +
+    theme_bw() +
+    scale_color_identity(name = "",
+                         breaks = c("black", "blue", "orange", "red", "darkgreen", "magenta"),
+                         labels = c("demand", "wind", "solar", "curtailment", "storage", "ccgt"),
+                         guide = "legend") +
+    scale_fill_identity(name = '', guide='legend',
+                      breaks = c('lightblue'),
+                      labels = c('reservoir GWh/10'))
 
 sim_out_summarise <- function(df) {
   df %>% 
@@ -171,12 +179,14 @@ sim1_df_summarised %>%
   dplyr::arrange(desc(gas_pct))
 
 # what does wind, solar, gas generaiton look like
+# NB ADD DEMAND LINE AS PER @MhehedZherting suggestion
 sim1_df_summarised %>%
-  dplyr::select(wind_cap, gas_cap, wind, solar, gas, battery_stor, battery_cap) %>%
+  dplyr::select(wind_cap, gas_cap, wind, solar, gas, battery_stor, battery_cap, demand) %>%
   tidyr::pivot_longer(cols = c('wind', 'solar', 'gas'), names_to = 'source', values_to = 'TWh') %>%
   dplyr::mutate(battery_cap_gw = battery_cap/1000, battery_stor_gw = battery_stor/1000) %>%
   ggplot(aes(as.factor(wind_cap/1000), TWh, fill=source)) + 
     geom_bar(stat='identity') + 
+    geom_hline(aes(yintercept=demand), linetype = 'dashed') +
     facet_grid(battery_cap_gw ~ battery_stor_gw, 
                labeller = labeller(
                  battery_cap_gw = function(val) {paste0(val, ' GW Storage')},
@@ -255,15 +265,15 @@ sim1_df_summarised %>%
                    battery_cap_gw = battery_cap/1000, battery_stor_gw = battery_stor/1000,
                    wind_cap_gw = wind_cap/1000,
                    gas_pct = gas * 100/demand) %>%
-  ggplot(aes(wind_cap_gw, gas_pct)) +
+  ggplot(aes(wind_cap_gw, gas_pct, color = as.factor(battery_stor_gw))) +
     geom_point() + geom_line() +
-    facet_grid(battery_cap_gw ~ battery_stor_gw, 
+    facet_wrap(~battery_cap_gw, 
                labeller = labeller(
-                 battery_cap_gw = function(val) {paste0(val, ' GW Storage')},
-                 battery_stor_gw = function(val) {paste0(val, ' GWh Storage')}
+                 battery_cap_gw = function(val) {paste0(val, ' GW Storage')}
                )
     )  +
-    xlab('Total Wind Capacity (GW)') +
+    guides(color=guide_legend(title="GWh Storage")) +
+    xlab('Total Wind Capacity (GW)') + ylab('% Gas TWh') +
     theme_bw()
   
 
@@ -273,15 +283,15 @@ sim1_df_summarised %>%
                    battery_cap_gw = battery_cap/1000, battery_stor_gw = battery_stor/1000,
                    wind_cap_gw = wind_cap/1000,
                    gas_cf = gas * 100 * 1000/(gas_cap * 24 * 365)) %>%
-  ggplot(aes(wind_cap_gw, gas_cf)) +
+  ggplot(aes(wind_cap_gw, gas_cf, color = as.factor(battery_stor_gw))) +
   geom_point() + geom_line() +
-  facet_grid(battery_cap_gw ~ battery_stor_gw, 
+  facet_wrap(~battery_cap_gw, 
              labeller = labeller(
-               battery_cap_gw = function(val) {paste0(val, ' GW Storage')},
-               battery_stor_gw = function(val) {paste0(val, ' GWh Storage')}
+               battery_cap_gw = function(val) {paste0(val, ' GW Storage')}
              )
   )  +
-  xlab('Total Wind Capacity (GW)') +
+  guides(color=guide_legend(title="GWh Storage")) +
+  xlab('Total Wind Capacity (GW)') + ylab('Gas Utilisation Factor') +
   theme_bw()
 
 # what is max capacity of gas required?
@@ -290,15 +300,16 @@ sim1_df_summarised %>%
                    battery_cap_gw = battery_cap/1000, battery_stor_gw = battery_stor/1000,
                    wind_cap_gw = wind_cap/1000,
                    gas_max_cap = purrr::map_dbl(sim_out, ~max(.$gas))) %>%
-  ggplot(aes(wind_cap_gw, gas_max_cap)) +
+  ggplot(aes(wind_cap_gw, gas_max_cap, color = as.factor(battery_stor_gw))) +
   geom_point() + geom_line() +
-  facet_grid(battery_cap_gw ~ battery_stor_gw, 
+  facet_wrap( ~ battery_cap_gw, 
              labeller = labeller(
-               battery_cap_gw = function(val) {paste0(val, ' GW Storage')},
-               battery_stor_gw = function(val) {paste0(val, ' GWh Storage')}
+               battery_cap_gw = function(val) {paste0(val, ' GW Storage')}
              )
   )  +
-  xlab('Total Wind Capacity (GW)') +
+  guides(color=guide_legend(title="GWh Storage")) +
+  xlab('Total Wind Capacity (GW)') + ylab('Maximum Gas Output (GW)') +
+  ylim(0, 50000) +
   theme_bw()
 
 #why do you need more gas capacity when you have more storage capacity?! 
@@ -312,16 +323,25 @@ normalised_vargen %>%
     solar_cap = 20000,
     battery_cap = 12000,
     battery_stor =  2000000) %>%
-  ggplot(aes(ts_hour, demand)) +
-    geom_line(color = 'black') +
-    geom_line(aes(y=wind), color = 'blue') +
-    geom_line(aes(y=solar), color = 'orange') +
-    geom_line(aes(y=gas), color = 'magenta') +
-    geom_line(aes(y=battery), color = 'darkgreen') +
-    geom_line(aes(y=-deficit), color = 'gray')  +
-    geom_line(aes(y=-curtailment), color = 'red')  +
-    geom_area(aes(y=-battery_store_post/50), fill = 'lightblue', alpha = 0.6) +
-    theme_bw()
+    ggplot(aes(ts_hour, demand)) +
+      geom_line(aes(color = 'black'), alpha=.3) +
+      geom_line(aes(y=wind, color = 'blue'), alpha=.3) +
+      geom_line(aes(y=solar, color = 'orange'), alpha=.3) +
+      geom_line(aes(y=gas, color = 'magenta')) +
+      geom_line(aes(y=battery, color = 'darkgreen')) +
+      geom_line(aes(y=-deficit, color = 'gray'))  +
+      geom_line(aes(y=-curtailment, color = 'red'), alpha=.3)  +
+      geom_area(aes(y=-battery_store_post/50, fill='lightblue'), alpha = 0.6) +
+      xlab('') + ylab('Generation/Demand MWh') +
+      theme_bw() +
+      ggtitle('March 2022 With 12GW/2000GWh storage') +
+      scale_color_identity(name = "",
+                           breaks = c("black", "blue", "orange", "red", "darkgreen", "magenta"),
+                           labels = c("demand", "wind", "solar", "curtailment", "storage", "ccgt"),
+                           guide = "legend") +
+      scale_fill_identity(name = '', guide='legend',
+                          breaks = c('lightblue'),
+                          labels = c('reservoir GWh/50'))
 
 # with 48GW use all storage, no gas most of the way through the wind lull 
 # but then all gas, no storage at the end when the storage runs dry!!
@@ -334,16 +354,25 @@ normalised_vargen %>%
     solar_cap = 20000,
     battery_cap = 48000,
     battery_stor =  2000000) %>%
-  ggplot(aes(ts_hour, demand)) +
-  geom_line(color = 'black') +
-  geom_line(aes(y=wind), color = 'blue') +
-  geom_line(aes(y=solar), color = 'orange') +
-  geom_line(aes(y=gas), color = 'magenta') +
-  geom_line(aes(y=battery), color = 'darkgreen') +
-  geom_line(aes(y=-deficit), color = 'gray')  +
-  geom_line(aes(y=-curtailment), color = 'red')  +
-  geom_area(aes(y=-battery_store_post/50), fill = 'lightblue', alpha = 0.6) +
-  theme_bw()
+    ggplot(aes(ts_hour, demand)) +
+      geom_line(aes(color = 'black'), alpha=.3) +
+      geom_line(aes(y=wind, color = 'blue'), alpha=.3) +
+      geom_line(aes(y=solar, color = 'orange'), alpha=.3) +
+      geom_line(aes(y=gas, color = 'magenta')) +
+      geom_line(aes(y=battery, color = 'darkgreen')) +
+      geom_line(aes(y=-deficit, color = 'gray'))  +
+      geom_line(aes(y=-curtailment, color = 'red'), alpha=.3)  +
+      geom_area(aes(y=-battery_store_post/50, fill='lightblue'), alpha = 0.6) +
+      xlab('') + ylab('Generation/Demand MWh') +
+      theme_bw() +
+      ggtitle('March 2022 With 48GW/2000GWh storage') +
+      scale_color_identity(name = "",
+                           breaks = c("black", "blue", "orange", "red", "darkgreen", "magenta"),
+                           labels = c("demand", "wind", "solar", "curtailment", "storage", "ccgt"),
+                           guide = "legend") +
+      scale_fill_identity(name = '', guide='legend',
+                          breaks = c('lightblue'),
+                          labels = c('reservoir GWh/50'))
 
 # also worth noting that more  solar could have helped here by keeping storage topped up, even in march
 normalised_vargen %>%
@@ -355,16 +384,25 @@ normalised_vargen %>%
     solar_cap = 50000,
     battery_cap = 48000,
     battery_stor =  2000000) %>%
-  ggplot(aes(ts_hour, demand)) +
-  geom_line(color = 'black') +
-  geom_line(aes(y=wind), color = 'blue') +
-  geom_line(aes(y=solar), color = 'orange') +
-  geom_line(aes(y=gas), color = 'magenta') +
-  geom_line(aes(y=battery), color = 'darkgreen') +
-  geom_line(aes(y=-deficit), color = 'gray')  +
-  geom_line(aes(y=-curtailment), color = 'red')  +
-  geom_area(aes(y=-battery_store_post/50), fill = 'lightblue', alpha = 0.6) +
-  theme_bw()
+    ggplot(aes(ts_hour, demand)) +
+      geom_line(aes(color = 'black'), alpha=.3) +
+      geom_line(aes(y=wind, color = 'blue'), alpha=.3) +
+      geom_line(aes(y=solar, color = 'orange'), alpha=1) +
+      geom_line(aes(y=gas, color = 'magenta')) +
+      geom_line(aes(y=battery, color = 'darkgreen')) +
+      geom_line(aes(y=-deficit, color = 'gray'))  +
+      geom_line(aes(y=-curtailment, color = 'red'), alpha=.3)  +
+      geom_area(aes(y=-battery_store_post/50, fill='lightblue'), alpha = 0.6) +
+      xlab('') + ylab('Generation/Demand MWh') +
+      theme_bw() +
+      ggtitle('March 2022 With 48GW/2000GWh storage + 50GW solar') +
+      scale_color_identity(name = "",
+                           breaks = c("black", "blue", "orange", "red", "darkgreen", "magenta"),
+                           labels = c("demand", "wind", "solar", "curtailment", "storage", "ccgt"),
+                           guide = "legend") +
+      scale_fill_identity(name = '', guide='legend',
+                          breaks = c('lightblue'),
+                          labels = c('reservoir GWh/50'))
   
 # in reality the most cost effecive option would be for storage and gas (or biomass) to behave differently
 # pricing mechanisms would try to get the balance right between running storage running down to avoid
